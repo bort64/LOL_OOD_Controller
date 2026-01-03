@@ -11,7 +11,6 @@ import torch.nn.functional as F
 from openicl.icl_dataset_reader import DatasetReader
 from retriever.ner_bert_retriever import NerBERTRetriever
 
-# 加载模型
 model_name = "/root/autodl-tmp/meta-llama/Llama-3.2-3B"
 # model_name = "/root/autodl-tmp/meta-llama/Llama-3.1-8B"
 # model_name = "/root/autodl-tmp/meta-llama/Qwen3-8B"
@@ -28,22 +27,12 @@ model.to(device)
 
 
 def calculate_ppl(logits, labels, entity_start, entity_end):
-    """
-    计算 entity 部分的困惑度 (Perplexity)
-
-    参数:
-    logits: 模型输出的 logits，形状为 [batch_size, seq_len, vocab_size]
-    labels: 真实的 token id，形状为 [batch_size, seq_len]
-    entity_start, entity_end: 实体部分在序列中的 token 起止位置
-    """
     batch_size, seq_len, vocab_size = logits.size()
     entity_end = min(entity_end, seq_len)  # 防止越界
 
-    # 对齐预测与目标：预测 t 时看目标 t+1
     shift_logits = logits[:, entity_start:entity_end - 1, :].contiguous()
     shift_labels = labels[:, entity_start + 1:entity_end].contiguous()
 
-    # 计算交叉熵损失（忽略 pad）
     loss = F.cross_entropy(
         shift_logits.view(-1, vocab_size),
         shift_labels.view(-1),
@@ -52,9 +41,9 @@ def calculate_ppl(logits, labels, entity_start, entity_end):
 
     ppl = math.exp(loss.item())
     return ppl
-# 计算置信度
+
 def calculate_confidence(logits, entity_start, entity_end):
-    # 计算Entity部分的置信度
+ 
     entity_logits = logits[:, entity_start:entity_end, :]
     probabilities = F.softmax(entity_logits, dim=-1)
     confidence = probabilities.max(dim=-1).values.mean()  # 计算平均置信度
@@ -139,13 +128,8 @@ def main(train_path, test_path, model_path, input_columns_name, output_columns_n
         # Tokenize inputs
         inputs = tokenizer(prompt, return_tensors="pt", truncation=True, padding=True, max_length=1024)
         inputs = {key: value.to(device) for key, value in inputs.items()}
-
-        # 使用model(**inputs)进行推理，获取logits
         outputs = model(**inputs)
         logits = outputs.logits
-
-
-        # 手动生成tokens
         gen_ids = inputs["input_ids"]
         max_length = 12
         for _ in range(max_length):
@@ -193,7 +177,7 @@ def main(train_path, test_path, model_path, input_columns_name, output_columns_n
                     "Repetition Rate": repetition_rate,
                 })
 
-    with open(f'/root/autodl-tmp/llm_code/ood_agent/ner/{task}/random/random_ice.jsonl', 'w') as f:
+    with open(f'random_ice.jsonl', 'w') as f:
         for result in results:
             f.write(json.dumps(result, ensure_ascii=False) + '\n')
     accuracy = count / len(test_dataset)
@@ -220,3 +204,4 @@ if __name__ == '__main__':
 
         main(train_path, test_path, model_path, input_columns_name, output_columns_name, ice_num, candidate_num,
          select_time, batch_size, seed, task_name)
+
