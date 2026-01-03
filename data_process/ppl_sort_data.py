@@ -24,34 +24,20 @@ model_name = "/root/autodl-tmp/meta-llama/Llama-3.2-3B"
 # model_name = "/root/autodl-fs/transformer/pythia-2.8b"
 tokenizer = AutoTokenizer.from_pretrained(model_name,padding_side='left')
 model = AutoModelForCausalLM.from_pretrained(model_name, ignore_mismatched_sizes=True).half()
-# 设置填充标记为结束标记
-tokenizer.pad_token = tokenizer.eos_token  # 设置填充标记为结束标记（eos_token）
-model.config.pad_token_id = tokenizer.eos_token_id  # 设置pad_token_id为eos_token_id
-# 检查GPU是否可用
+tokenizer.pad_token = tokenizer.eos_token
+model.config.pad_token_id = tokenizer.eos_token_id
 device = "cuda" if torch.cuda.is_available() else "cpu"
 model.to(device)
 
-
-def clean_text(text: str) -> str:
-    # 替换换行符为空格
-    text = text.replace("\n", " ")
-    # 去掉下划线、长横线、破折号等无效符号
-    text = re.sub(r"[_\-–—]+", " ", text)
-    # 合并多个空格为一个空格
-    text = re.sub(r"\s+", " ", text)
-    # 去掉首尾空格
-    return text.strip()
 def calculate_accuracy(predictions, references):
     correct = sum(p == r for p, r in zip(predictions, references))
     total = len(references)
     return correct / total if total > 0 else 0.0
 
 def format_predictions(idx_list, train_dataset):
-    # 情感分析标签映射
     label_map = {0: 'negative', 1: 'positive', 2: 'neutral'}
     # label_map = {0: 'benign', 1: 'toxic'}
     # label_map = {0: 'entailment', 1: 'contradiction', 2: 'neutral'}
-    # 按标签分组样本
     label_groups = defaultdict(list)
     for idx in idx_list:
         text = train_dataset[idx]["Text"].split(" ")[:80]
@@ -82,7 +68,6 @@ from tqdm import tqdm  # 引入 tqdm
 def main(template, train_path, test_path, model_path, sentence_model_path, input_columns_name, output_columns_name,
          ice_num, candidate_num, select_time, batch_size, seed, task):
 
-    # ====================== 设置随机种子 ======================
     import random
     import numpy as np
     import torch
@@ -92,7 +77,6 @@ def main(template, train_path, test_path, model_path, sentence_model_path, input
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
-    # ==========================================================
 
     # load dataset
     combined_dataset = load_dataset("json", data_files={"train": train_path, "test": test_path})
@@ -286,13 +270,9 @@ if __name__ == '__main__':
     # tasks = ["implicit_hate","toxigen","hsaol"]
     # tasks = ["wanli", "anli", "contract_nli"]
     model_names = ['gpt2']
-    # seeds = [1, 43, 666]
-    seeds = [1]
-
-    # set the model and dataset path
-    # model_dir = 'C:\\Users\\bort\\.cache\\huggingface\\transformers\\'
-    model_dir = '/root/autodl-tmp/huggingface/transformers/'
-    sentence_transformer_path = '/root/autodl-tmp/huggingface/transformers/all-mpnet-base-v2'
+    seeds = [43]
+    
+    sentence_transformer_path = 'all-mpnet-base-v2'
     data_dir = ''
 
     for model_name in model_names:
@@ -302,7 +282,7 @@ if __name__ == '__main__':
 
         for t in tasks:
             for task_name in task_names:
-                train_path = '/root/autodl-tmp/llm_code/ood_agent/sentiment/train.jsonl'
+                train_path = 'train.jsonl'
 
                 test_name = test_split[task_name]
                 test_path = f'test_filtered.jsonl'
@@ -316,3 +296,4 @@ if __name__ == '__main__':
                 main(templates[task_name], train_path, test_path, model_path, sentence_model_path,
                      input_columns[task_name], output_columns[task_name], ice_num, candidate_num, select_time,
                      batch_size, seed, t)
+
